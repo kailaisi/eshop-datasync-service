@@ -103,6 +103,7 @@
                     <compilerPlugins>
                         <plugin>spring</plugin>
                     </compilerPlugins>
+                    <languageVersion>1.3</languageVersion>
                 </configuration>
                 <dependencies>
                     <dependency>

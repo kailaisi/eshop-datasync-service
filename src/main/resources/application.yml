@@ -7,3 +7,8 @@ eureka:
 spring:
   application:
     name: datasync-server
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: rabbitadmin
+    password: 123456

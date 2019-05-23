@@ -15,7 +15,7 @@ interface EshopProductService {
     @RequestMapping("/brand/findById", method = arrayOf(RequestMethod.POST))
     fun findBrandById(@RequestParam(value = "id") id: Long): String
 
-    @RequestMapping("/cagetory/findById", method = arrayOf(RequestMethod.POST))
+    @RequestMapping("/category/findById", method = arrayOf(RequestMethod.POST))
     fun findCategoryById(@RequestParam(value = "id") id: Long): String
 
     @RequestMapping("/product/findById", method = arrayOf(RequestMethod.POST))

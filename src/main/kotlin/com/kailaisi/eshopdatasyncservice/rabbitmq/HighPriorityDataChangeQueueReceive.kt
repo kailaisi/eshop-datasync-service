@@ -7,6 +7,8 @@ import org.springframework.amqp.rabbit.annotation.RabbitListener
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import redis.clients.jedis.JedisPool
+import java.lang.Thread.currentThread
+import java.lang.Thread.sleep
 import java.util.*
 import kotlin.concurrent.thread
 
@@ -18,8 +20,8 @@ import kotlin.concurrent.thread
  *<br/>创建时间：2019/5/21 9:26
  */
 @Component
-@RabbitListener(queues = arrayOf("data-change-queue"))
-class DataChangeQueueReceive() {
+@RabbitListener(queues = arrayOf("high-priority-data-change-queue"))
+class HighPriorityDataChangeQueueReceive() {
     @Autowired
     lateinit var productService: EshopProductService
     @Autowired
@@ -30,26 +32,27 @@ class DataChangeQueueReceive() {
     var dimRabbitMessageSendSet = Collections.synchronizedSet(HashSet<String>())
 
     init {
-        println(Thread.currentThread().name)
-        thread(start = true) {
-            println(Thread.currentThread().name)
+        println(currentThread().name)
+        thread (start = true){
+            println(currentThread().name)
             while (true) {
                 dimRabbitMessageSendSet.forEach {
-                    rabbitMQSender.send(RabbitQueue.AGGR_DATA_CHANGE_QUEUE, it)
+                    rabbitMQSender.send(RabbitQueue.HIGH_PRIORITY_AGGR_DATA_CHANGE_QUEUE, it)
                     println("发送高优先级聚合数据$it")
                 }
                 dimRabbitMessageSendSet.clear()
                 try {
-                    Thread.sleep(5000)
+                    sleep(5000)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
             }
         }
     }
+
     @RabbitHandler
     fun process(msg: String) {
-        println("接收到原子数据$msg")
+        println("接收到高优先级原子数据$msg")
         try {
             val bean = FastJsonUtil.json2Bean(msg, DataChange::class.java)
             when (bean.data_type) {
@@ -144,15 +147,13 @@ class DataChangeQueueReceive() {
      * 品牌信息
      */
     private fun processBrandDataChangeMessage(bean: DataChange) {
-        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
                 val brand = productService.findBrandById(bean.id)
-                resource.set("brand_${bean.id}", brand)
+                jedisPool.resource.set("brand_${bean.id}", brand)
             }
-            EventType.DELETE -> resource.del("brand_${bean.id}")
+            EventType.DELETE -> jedisPool.resource.del("brand_${bean.id}")
         }
-        resource.close()
         val sendData = AggrDataChange(DataType.BRAND, bean.id, null)
         dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
     }

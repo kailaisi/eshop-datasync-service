@@ -18,8 +18,8 @@ import kotlin.concurrent.thread
  *<br/>创建时间：2019/5/21 9:26
  */
 @Component
-@RabbitListener(queues = arrayOf("data-change-queue"))
-class DataChangeQueueReceive() {
+@RabbitListener(queues = arrayOf("refresh-data-change-queue"))
+class RefreshDataChangeQueueReceive() {
     @Autowired
     lateinit var productService: EshopProductService
     @Autowired
@@ -35,7 +35,7 @@ class DataChangeQueueReceive() {
             println(Thread.currentThread().name)
             while (true) {
                 dimRabbitMessageSendSet.forEach {
-                    rabbitMQSender.send(RabbitQueue.AGGR_DATA_CHANGE_QUEUE, it)
+                    rabbitMQSender.send(RabbitQueue.REFRESH_AGGR_DATA_CHANGE_QUEUE, it)
                     println("发送高优先级聚合数据$it")
                 }
                 dimRabbitMessageSendSet.clear()
@@ -47,9 +47,10 @@ class DataChangeQueueReceive() {
             }
         }
     }
+
     @RabbitHandler
     fun process(msg: String) {
-        println("接收到原子数据$msg")
+        println("接收刷新到原子数据$msg")
         try {
             val bean = FastJsonUtil.json2Bean(msg, DataChange::class.java)
             when (bean.data_type) {
@@ -144,15 +145,13 @@ class DataChangeQueueReceive() {
      * 品牌信息
      */
     private fun processBrandDataChangeMessage(bean: DataChange) {
-        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
                 val brand = productService.findBrandById(bean.id)
-                resource.set("brand_${bean.id}", brand)
+                jedisPool.resource.set("brand_${bean.id}", brand)
             }
-            EventType.DELETE -> resource.del("brand_${bean.id}")
+            EventType.DELETE -> jedisPool.resource.del("brand_${bean.id}")
         }
-        resource.close()
         val sendData = AggrDataChange(DataType.BRAND, bean.id, null)
         dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
     }

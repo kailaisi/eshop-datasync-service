@@ -15,7 +15,7 @@ class EshopDatasyncServiceApplication{
     @Bean
     fun jedis(): JedisPool {
         val config = JedisPoolConfig()
-        config.maxTotal = 100
+        config.maxTotal = 3000
         config.maxIdle = 5
         config.maxWaitMillis = 1000 * 100
         config.testOnBorrow = true

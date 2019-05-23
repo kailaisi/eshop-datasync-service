@@ -7,7 +7,11 @@ package com.kailaisi.eshopdatasyncservice.rabbitmq
  */
 object RabbitQueue {
     val DATA_CHANGE_QUEUE: String = "data-change-queue"
+    val HIGH_PRIORITY_DATA_CHANGE_QUEUE: String = "high-priority-data-change-queue"
+    val REFRESH_DATA_CHANGE_QUEUE: String = "refresh-data-change-queue"
     val AGGR_DATA_CHANGE_QUEUE: String = "aggr-data-change-queue"
+    val REFRESH_AGGR_DATA_CHANGE_QUEUE: String = "refresh-aggr-data-change-queue"
+    val HIGH_PRIORITY_AGGR_DATA_CHANGE_QUEUE: String = "high-priority-aggr-data-change-queue"
 }
 
 
@@ -34,7 +38,7 @@ object EventType {
  * 数据修改类型
  */
 object DataType {
-    val BRAND: String = "barnd"
+    val BRAND: String = "brand"
     val CATEGORY: String = "category"
     val PRODUCT_DESC: String = "productDesc"
     val PRODUCT_PROPERTY: String = "productProperty"
