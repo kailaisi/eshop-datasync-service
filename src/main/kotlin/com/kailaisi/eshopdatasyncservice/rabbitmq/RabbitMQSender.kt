@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
  *<p/>作者：wu
  *<br/>创建时间：2019/5/20 15:45
  */
-@Component
+@Component("RabbitMQSender")
 class RabbitMQSender {
     @Autowired
     lateinit var amqpTemporal: AmqpTemplate

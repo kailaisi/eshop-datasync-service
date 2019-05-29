@@ -1,7 +1,10 @@
 package com.kailaisi.eshopdatasyncservice.rabbitmq
 
+import com.alibaba.fastjson.JSONArray
+import com.alibaba.fastjson.JSONObject
 import com.kailaisi.eshopdatasyncservice.service.EshopProductService
 import com.kailaisi.eshopdatasyncservice.util.FastJsonUtil
+import org.apache.commons.lang.StringUtils
 import org.springframework.amqp.rabbit.annotation.RabbitHandler
 import org.springframework.amqp.rabbit.annotation.RabbitListener
 import org.springframework.beans.factory.annotation.Autowired
@@ -21,7 +24,7 @@ import kotlin.concurrent.thread
  */
 @Component
 @RabbitListener(queues = arrayOf("high-priority-data-change-queue"))
-class HighPriorityDataChangeQueueReceive() {
+class HighPriorityDataChangeQueueReceive {
     @Autowired
     lateinit var productService: EshopProductService
     @Autowired
@@ -30,7 +33,12 @@ class HighPriorityDataChangeQueueReceive() {
     lateinit var rabbitMQSender: RabbitMQSender
     //消息队列
     var dimRabbitMessageSendSet = Collections.synchronizedSet(HashSet<String>())
-
+    //brand的消息队列
+    var productDataChangeList = arrayListOf<DataChange>()
+    //brand的消息队列
+    var brandDataChangeList = arrayListOf<DataChange>()
+    //brand的消息队列
+    var categoryDataChangeList = arrayListOf<DataChange>()
     init {
         println(currentThread().name)
         thread (start = true){
@@ -67,95 +75,151 @@ class HighPriorityDataChangeQueueReceive() {
             e.printStackTrace()
         }
     }
-
     /**
      * 产品属性
      */
     private fun processProductPropertyDataChangeMessage(bean: DataChange) {
+        var jedis = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
                 val productDescById = productService.findProductDescById(bean.id)
-                jedisPool.resource.set("product_property_${bean.productId}", productDescById)
+                jedis.set("product_property_${bean.productId}", productDescById)
             }
-            EventType.DELETE -> jedisPool.resource.del("product_property_${bean.productId}")
+            EventType.DELETE -> jedis.del("product_property_${bean.productId}")
         }
         val sendData = AggrDataChange(DataType.PRODUCT, bean.productId!!, bean.productId!!)
         dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        jedis.close()
     }
 
     /**
      * 产品规格
      */
     private fun processProductSpecificationDataChangeMessage(bean: DataChange) {
+        var jedis = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
                 val productDescById = productService.findProductDescById(bean.id)
-                jedisPool.resource.set("product_specification_${bean.productId}", productDescById)
+                jedis.set("product_specification_${bean.productId}", productDescById)
             }
-            EventType.DELETE -> jedisPool.resource.del("product_specification_${bean.productId}")
+            EventType.DELETE -> jedis.del("product_specification_${bean.productId}")
         }
         val sendData = AggrDataChange(DataType.PRODUCT, bean.productId!!, bean.productId!!)
         dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        jedis.close()
     }
 
     /**
      * 产品描述
      */
     private fun processProductDescDataChangeMessage(bean: DataChange) {
+        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
                 val productDescById = productService.findProductDescById(bean.id)
-                jedisPool.resource.set("product_desc_${bean.productId}", productDescById)
+                resource.set("product_desc_${bean.productId}", productDescById)
             }
-            EventType.DELETE -> jedisPool.resource.del("product_desc_${bean.productId}")
+            EventType.DELETE -> resource.del("product_desc_${bean.productId}")
         }
         val sendData = AggrDataChange(DataType.PRODUCT_DESC, bean.productId!!, bean.productId!!)
         dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        resource.close()
     }
 
     /**
      * 产品信息
      */
     private fun processProductDataChangeMessage(bean: DataChange) {
+        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
-                val product = productService.findProductById(bean.id)
-                jedisPool.resource.set("product_${bean.id}", product)
+                productDataChangeList.add(bean)
+                if (productDataChangeList.size > 20) {
+                    val ids = arrayListOf<Long>()
+                    productDataChangeList.forEach { ids.add(it.id) }
+                    val join = StringUtils.join(ids, ",")
+                    val objectJson = JSONArray.parseArray(productService.findProductByIds(join))
+                    objectJson.forEach {
+                        if (it is JSONObject) {
+                            resource.set("product_${it.getLong("id")}", it.toString())
+                            val sendData = AggrDataChange(DataType.PRODUCT, it.getLong("id"), null)
+                            dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+                        }
+                    }
+                    brandDataChangeList.clear()
+                }
             }
-            EventType.DELETE -> jedisPool.resource.del("product_${bean.id}")
+            EventType.DELETE -> {
+                resource.del("product_${bean.id}")
+                val sendData = AggrDataChange(DataType.PRODUCT, bean.id, null)
+                dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+            }
         }
-        val sendData = AggrDataChange(DataType.PRODUCT, bean.id, bean.id)
-        dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        resource.close()
     }
 
     /**
      * 产品种类
      */
     private fun processCategoryDataChangeMessage(bean: DataChange) {
+        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
-                val category = productService.findCategoryById(bean.id)
-                jedisPool.resource.set("category_${bean.id}", category)
+                categoryDataChangeList.add(bean)
+                if (categoryDataChangeList.size > 20) {
+                    val ids = arrayListOf<Long>()
+                    categoryDataChangeList.forEach { ids.add(it.id) }
+                    val join = StringUtils.join(ids, ",")
+                    val objectJson = JSONArray.parseArray(productService.findCategoryByIds(join))
+                    objectJson.forEach {
+                        if (it is JSONObject) {
+                            resource.set("category_${it.getLong("id")}", it.toString())
+                            val sendData = AggrDataChange(DataType.CATEGORY, it.getLong("id"), null)
+                            dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+                        }
+                    }
+                    brandDataChangeList.clear()
+                }
             }
-            EventType.DELETE -> jedisPool.resource.del("category_${bean.id}")
+            EventType.DELETE -> {
+                resource.del("category_${bean.id}")
+                val sendData = AggrDataChange(DataType.CATEGORY, bean.id, null)
+                dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+            }
         }
-        val sendData = AggrDataChange(DataType.CATEGORY, bean.id, null)
-        dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        resource.close()
     }
 
     /**
      * 品牌信息
      */
     private fun processBrandDataChangeMessage(bean: DataChange) {
+        var resource = jedisPool.resource
         when (bean.event_type) {
             EventType.ADD, EventType.UPDATE -> {
-                val brand = productService.findBrandById(bean.id)
-                jedisPool.resource.set("brand_${bean.id}", brand)
+                brandDataChangeList.add(bean)
+                if (brandDataChangeList.size > 20) {
+                    val ids = arrayListOf<Long>()
+                    brandDataChangeList.forEach { ids.add(it.id) }
+                    val join = StringUtils.join(ids, ",")
+                    val objectJson = JSONArray.parseArray(productService.findBrandByIds(join))
+                    objectJson.forEach {
+                        if (it is JSONObject) {
+                            resource.set("brand_${it.getLong("id")}", it.toString())
+                            val sendData = AggrDataChange(DataType.BRAND, it.getLong("id"), null)
+                            dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+                        }
+                    }
+                    brandDataChangeList.clear()
+                }
             }
-            EventType.DELETE -> jedisPool.resource.del("brand_${bean.id}")
+            EventType.DELETE -> {
+                resource.del("brand_${bean.id}")
+                val sendData = AggrDataChange(DataType.BRAND, bean.id, null)
+                dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+            }
         }
-        val sendData = AggrDataChange(DataType.BRAND, bean.id, null)
-        dimRabbitMessageSendSet.add(FastJsonUtil.bean2Json(sendData))
+        resource.close()
     }
 }
 

@@ -3,30 +3,32 @@ package com.kailaisi.eshopdatasyncservice.rabbitmq
 import com.alibaba.fastjson.JSONArray
 import com.alibaba.fastjson.JSONObject
 import com.kailaisi.eshopdatasyncservice.service.EshopProductService
+import com.kailaisi.eshopdatasyncservice.spring.SpringContext
 import com.kailaisi.eshopdatasyncservice.util.FastJsonUtil
 import org.apache.commons.lang.StringUtils
-import org.springframework.amqp.rabbit.annotation.RabbitHandler
-import org.springframework.amqp.rabbit.annotation.RabbitListener
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Bean
+import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 import redis.clients.jedis.JedisPool
 import java.util.*
 import kotlin.concurrent.thread
 
 /**
- *描述： * （1）然后通过spring cloud fegion调用product-service服务的各种接口， 获取数据
- * （2）将原子数据在redis中进行增删改
- * （3）将维度数据变化消息写入rabbitmq中另外一个queue，供数据聚合服务来消费
+ *描述：
  *<p/>作者：wu
- *<br/>创建时间：2019/5/21 9:26
+ *<br/>创建时间：2019/5/28 17:48
  */
-@Component
-@RabbitListener(queues = arrayOf("data-change-queue"))
-class DataChangeQueueReceive {
+
+class QueueProcess(from: String) {
     @Autowired
     lateinit var rabbitMQSender: RabbitMQSender
+
+
     @Autowired
     lateinit var productService: EshopProductService
+
+
     @Autowired
     lateinit var jedisPool: JedisPool
     //消息队列
@@ -39,13 +41,16 @@ class DataChangeQueueReceive {
     var categoryDataChangeList = arrayListOf<DataChange>()
 
     init {
+         rabbitMQSender = SpringContext.getApplicationContext().getBean("RabbitMQSender") as RabbitMQSender
+         jedisPool = SpringContext.getApplicationContext().getBean("jedis") as JedisPool
+         productService = SpringContext.getApplicationContext().getBean("EshopProductService") as EshopProductService
         println(Thread.currentThread().name)
-        thread (start = true){
+        thread(start = true) {
             println(Thread.currentThread().name)
             while (true) {
                 dimRabbitMessageSendSet.forEach {
-                    rabbitMQSender.send(RabbitQueue.HIGH_PRIORITY_AGGR_DATA_CHANGE_QUEUE, it)
-                    println("发送高优先级聚合数据$it")
+                    rabbitMQSender.send(from, it)
+                    println("发送聚合数据$it")
                 }
                 dimRabbitMessageSendSet.clear()
                 try {
@@ -57,9 +62,7 @@ class DataChangeQueueReceive {
         }
     }
 
-    @RabbitHandler
     fun process(msg: String) {
-        println("接收到高优先级原子数据$msg")
         try {
             val bean = FastJsonUtil.json2Bean(msg, DataChange::class.java)
             when (bean.data_type) {
@@ -74,6 +77,7 @@ class DataChangeQueueReceive {
             e.printStackTrace()
         }
     }
+
     /**
      * 产品属性
      */
@@ -221,26 +225,3 @@ class DataChangeQueueReceive {
         resource.close()
     }
 }
-
-/*@Component
-@RabbitListener(queues = arrayOf("high-priority-data-change-queue"))
-class HighPriorityDataChangeQueueReceive11 {
-    var process: QueueProcess = QueueProcess(RabbitQueue.HIGH_PRIORITY_AGGR_DATA_CHANGE_QUEUE)
-    @RabbitHandler
-    fun process(msg: String) {
-        println("接收到高优先级原子数据$msg")
-        process.process(msg)
-    }
-}
-
-
-@Component
-@RabbitListener(queues = arrayOf("refresh-data-change-queue"))
-class RefreshDataChangeQueueReceive11 {
-    var process: QueueProcess = QueueProcess(RabbitQueue.REFRESH_AGGR_DATA_CHANGE_QUEUE)
-    @RabbitHandler
-    fun process(msg: String) {
-        println("接收刷新到原子数据$msg")
-        process.process(msg)
-    }
-}*/
