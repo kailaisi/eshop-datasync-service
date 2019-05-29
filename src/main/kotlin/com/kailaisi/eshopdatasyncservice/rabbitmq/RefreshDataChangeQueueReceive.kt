@@ -20,9 +20,7 @@ import kotlin.concurrent.thread
  *<p/>作者：wu
  *<br/>创建时间：2019/5/21 9:26
  */
-@Component
-@RabbitListener(queues = arrayOf("refresh-data-change-queue"))
-class RefreshDataChangeQueueReceive {
+class RefreshDataChangeQueueReceive11 {
     @Autowired
     lateinit var productService: EshopProductService
     @Autowired

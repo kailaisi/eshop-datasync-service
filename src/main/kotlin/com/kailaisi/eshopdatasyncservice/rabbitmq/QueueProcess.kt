@@ -6,10 +6,6 @@ import com.kailaisi.eshopdatasyncservice.service.EshopProductService
 import com.kailaisi.eshopdatasyncservice.spring.SpringContext
 import com.kailaisi.eshopdatasyncservice.util.FastJsonUtil
 import org.apache.commons.lang.StringUtils
-import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.context.annotation.Bean
-import org.springframework.context.annotation.Configuration
-import org.springframework.stereotype.Component
 import redis.clients.jedis.JedisPool
 import java.util.*
 import kotlin.concurrent.thread
@@ -21,16 +17,9 @@ import kotlin.concurrent.thread
  */
 
 class QueueProcess(from: String) {
-    @Autowired
-    lateinit var rabbitMQSender: RabbitMQSender
-
-
-    @Autowired
-    lateinit var productService: EshopProductService
-
-
-    @Autowired
-    lateinit var jedisPool: JedisPool
+    var rabbitMQSender = SpringContext.getApplicationContext().getBean("RabbitMQSender") as RabbitMQSender
+    var productService: EshopProductService = SpringContext.getApplicationContext().getBean(EshopProductService::class.java)
+    var jedisPool = SpringContext.getApplicationContext().getBean("jedis") as JedisPool
     //消息队列
     var dimRabbitMessageSendSet = Collections.synchronizedSet(HashSet<String>())
     //brand的消息队列
@@ -41,9 +30,6 @@ class QueueProcess(from: String) {
     var categoryDataChangeList = arrayListOf<DataChange>()
 
     init {
-         rabbitMQSender = SpringContext.getApplicationContext().getBean("RabbitMQSender") as RabbitMQSender
-         jedisPool = SpringContext.getApplicationContext().getBean("jedis") as JedisPool
-         productService = SpringContext.getApplicationContext().getBean("EshopProductService") as EshopProductService
         println(Thread.currentThread().name)
         thread(start = true) {
             println(Thread.currentThread().name)

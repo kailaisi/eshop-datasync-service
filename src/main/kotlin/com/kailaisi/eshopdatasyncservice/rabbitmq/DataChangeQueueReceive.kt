@@ -3,11 +3,14 @@ package com.kailaisi.eshopdatasyncservice.rabbitmq
 import com.alibaba.fastjson.JSONArray
 import com.alibaba.fastjson.JSONObject
 import com.kailaisi.eshopdatasyncservice.service.EshopProductService
+import com.kailaisi.eshopdatasyncservice.spring.SpringContext
 import com.kailaisi.eshopdatasyncservice.util.FastJsonUtil
+import com.sun.xml.internal.fastinfoset.tools.PrintTable
 import org.apache.commons.lang.StringUtils
 import org.springframework.amqp.rabbit.annotation.RabbitHandler
 import org.springframework.amqp.rabbit.annotation.RabbitListener
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.beans.factory.getBean
 import org.springframework.stereotype.Component
 import redis.clients.jedis.JedisPool
 import java.util.*
@@ -20,12 +23,9 @@ import kotlin.concurrent.thread
  *<p/>作者：wu
  *<br/>创建时间：2019/5/21 9:26
  */
-@Component
-@RabbitListener(queues = arrayOf("data-change-queue"))
-class DataChangeQueueReceive {
+class DataChangeQueueReceive11 {
     @Autowired
     lateinit var rabbitMQSender: RabbitMQSender
-    @Autowired
     lateinit var productService: EshopProductService
     @Autowired
     lateinit var jedisPool: JedisPool
@@ -40,7 +40,8 @@ class DataChangeQueueReceive {
 
     init {
         println(Thread.currentThread().name)
-        thread (start = true){
+        productService=SpringContext.getApplicationContext().getBean(EshopProductService::class.java)
+        thread(start = true) {
             println(Thread.currentThread().name)
             while (true) {
                 dimRabbitMessageSendSet.forEach {
@@ -74,6 +75,7 @@ class DataChangeQueueReceive {
             e.printStackTrace()
         }
     }
+
     /**
      * 产品属性
      */
@@ -221,26 +223,3 @@ class DataChangeQueueReceive {
         resource.close()
     }
 }
-
-/*@Component
-@RabbitListener(queues = arrayOf("high-priority-data-change-queue"))
-class HighPriorityDataChangeQueueReceive11 {
-    var process: QueueProcess = QueueProcess(RabbitQueue.HIGH_PRIORITY_AGGR_DATA_CHANGE_QUEUE)
-    @RabbitHandler
-    fun process(msg: String) {
-        println("接收到高优先级原子数据$msg")
-        process.process(msg)
-    }
-}
-
-
-@Component
-@RabbitListener(queues = arrayOf("refresh-data-change-queue"))
-class RefreshDataChangeQueueReceive11 {
-    var process: QueueProcess = QueueProcess(RabbitQueue.REFRESH_AGGR_DATA_CHANGE_QUEUE)
-    @RabbitHandler
-    fun process(msg: String) {
-        println("接收刷新到原子数据$msg")
-        process.process(msg)
-    }
-}*/

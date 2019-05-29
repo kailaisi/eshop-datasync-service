@@ -1,5 +1,6 @@
 package com.kailaisi.eshopdatasyncservice.fallback
 
+import com.alibaba.fastjson.JSON
 import com.kailaisi.eshopdatasyncservice.service.EshopProductService
 import org.springframework.stereotype.Component
 
@@ -22,7 +23,8 @@ class EshopProductServiceFallback : EshopProductService {
     }
 
     override fun findBrandByIds(id: String): String {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        println("启动fallback")
+        return JSON.toJSONString(emptyArray<String>())
     }
 
     override fun findCategoryById(id: Long): String {
