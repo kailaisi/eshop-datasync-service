@@ -1,0 +1,19 @@
+server:
+  port: 8765
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+spring:
+  application:
+    name: datasync-server
+  rabbitmq:
+    host: 192.168.11.14
+    port: 5672
+    username: rabbitadmin
+    password: 123456
+feign:
+  hystrix:
+    enabled: true
+  httpclient:
+    connection-timeout:5000
